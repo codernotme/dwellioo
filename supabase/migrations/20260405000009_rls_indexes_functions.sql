@@ -1,32 +1,36 @@
--- =============================================================================
 -- Migration 0009: Row-Level Security, Performance Indexes, pg_cron Jobs
 -- Dwellioo SaaS Platform
 -- =============================================================================
+
+-- Ensure required extensions are available (useful if 0001 was skipped or partial)
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "pg_cron";
+CREATE EXTENSION IF NOT EXISTS "pg_net";
 
 -- ---------------------------------------------------------------------------
 -- HELPER FUNCTIONS for RLS
 -- ---------------------------------------------------------------------------
 
 -- Returns the current user's profile
-CREATE OR REPLACE FUNCTION auth.profile()
+CREATE OR REPLACE FUNCTION public.profile()
 RETURNS profiles LANGUAGE sql STABLE SECURITY DEFINER AS $$
   SELECT * FROM profiles WHERE id = auth.uid() LIMIT 1;
 $$;
 
 -- Returns the current user's role
-CREATE OR REPLACE FUNCTION auth.my_role()
+CREATE OR REPLACE FUNCTION public.my_role()
 RETURNS user_role LANGUAGE sql STABLE SECURITY DEFINER AS $$
   SELECT role FROM profiles WHERE id = auth.uid() LIMIT 1;
 $$;
 
 -- Returns the account_id for the current user
-CREATE OR REPLACE FUNCTION auth.my_account()
+CREATE OR REPLACE FUNCTION public.my_account()
 RETURNS UUID LANGUAGE sql STABLE SECURITY DEFINER AS $$
   SELECT account_id FROM profiles WHERE id = auth.uid() LIMIT 1;
 $$;
 
 -- Returns property IDs accessible to the current user
-CREATE OR REPLACE FUNCTION auth.my_property_ids()
+CREATE OR REPLACE FUNCTION public.my_property_ids()
 RETURNS UUID[] LANGUAGE sql STABLE SECURITY DEFINER AS $$
   SELECT ARRAY(
     SELECT DISTINCT property_id FROM staff_assignments
@@ -38,13 +42,13 @@ RETURNS UUID[] LANGUAGE sql STABLE SECURITY DEFINER AS $$
 $$;
 
 -- Returns true if the user is a super admin
-CREATE OR REPLACE FUNCTION auth.is_super_admin()
+CREATE OR REPLACE FUNCTION public.is_super_admin()
 RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
   SELECT EXISTS(SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'Super_Admin');
 $$;
 
 -- Returns true if user is a property manager for a given property
-CREATE OR REPLACE FUNCTION auth.is_manager_of(p_property_id UUID)
+CREATE OR REPLACE FUNCTION public.is_manager_of(p_property_id UUID)
 RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
   SELECT EXISTS(
     SELECT 1 FROM staff_assignments
@@ -56,7 +60,7 @@ RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
 $$;
 
 -- Returns true if user is any staff member for a given property
-CREATE OR REPLACE FUNCTION auth.is_staff_of(p_property_id UUID)
+CREATE OR REPLACE FUNCTION public.is_staff_of(p_property_id UUID)
 RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
   SELECT EXISTS(
     SELECT 1 FROM staff_assignments
@@ -67,7 +71,7 @@ RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
 $$;
 
 -- Returns true if user is a resident in a given property
-CREATE OR REPLACE FUNCTION auth.is_resident_of(p_property_id UUID)
+CREATE OR REPLACE FUNCTION public.is_resident_of(p_property_id UUID)
 RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
   SELECT EXISTS(
     SELECT 1 FROM residents
@@ -78,7 +82,7 @@ RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
 $$;
 
 -- Returns the resident.id for the current user in a property
-CREATE OR REPLACE FUNCTION auth.my_resident_id(p_property_id UUID)
+CREATE OR REPLACE FUNCTION public.my_resident_id(p_property_id UUID)
 RETURNS UUID LANGUAGE sql STABLE SECURITY DEFINER AS $$
   SELECT id FROM residents
   WHERE profile_id = auth.uid() AND property_id = p_property_id
@@ -143,13 +147,13 @@ ALTER TABLE analytics_snapshots         ENABLE ROW LEVEL SECURITY;
 -- ACCOUNTS
 -- ---------------------------------------------------------------------------
 CREATE POLICY accounts_owner_read ON accounts FOR SELECT
-  USING (owner_id = auth.uid() OR auth.is_super_admin());
+  USING (owner_id = auth.uid() OR public.is_super_admin());
 
 CREATE POLICY accounts_owner_update ON accounts FOR UPDATE
-  USING (owner_id = auth.uid() OR auth.is_super_admin());
+  USING (owner_id = auth.uid() OR public.is_super_admin());
 
 CREATE POLICY accounts_insert ON accounts FOR INSERT
-  WITH CHECK (owner_id = auth.uid() OR auth.is_super_admin());
+  WITH CHECK (owner_id = auth.uid() OR public.is_super_admin());
 
 -- ---------------------------------------------------------------------------
 -- PROFILES
@@ -160,19 +164,19 @@ CREATE POLICY profiles_self ON profiles FOR ALL
 
 -- Staff can read profiles within their account
 CREATE POLICY profiles_account_read ON profiles FOR SELECT
-  USING (account_id = auth.my_account() OR auth.is_super_admin());
+  USING (account_id = public.my_account() OR public.is_super_admin());
 
 -- ---------------------------------------------------------------------------
 -- BILLING INVOICES
 -- ---------------------------------------------------------------------------
 CREATE POLICY billing_account ON billing_invoices FOR SELECT
-  USING (account_id = auth.my_account() OR auth.is_super_admin());
+  USING (account_id = public.my_account() OR public.is_super_admin());
 
 -- ---------------------------------------------------------------------------
 -- AUDIT LOGS (read-only for account managers, append-only)
 -- ---------------------------------------------------------------------------
 CREATE POLICY audit_read ON audit_logs FOR SELECT
-  USING (account_id = auth.my_account() OR auth.is_super_admin());
+  USING (account_id = public.my_account() OR public.is_super_admin());
 
 -- No UPDATE or DELETE on audit_logs by any role (enforced by no policies + no grants)
 
@@ -181,50 +185,50 @@ CREATE POLICY audit_read ON audit_logs FOR SELECT
 -- ---------------------------------------------------------------------------
 CREATE POLICY properties_accessible ON properties FOR SELECT
   USING (
-    auth.is_super_admin()
-    OR account_id = auth.my_account()
-    OR id = ANY(auth.my_property_ids())
+    public.is_super_admin()
+    OR account_id = public.my_account()
+    OR id = ANY(public.my_property_ids())
   );
 
 CREATE POLICY properties_manager_write ON properties FOR INSERT
-  WITH CHECK (account_id = auth.my_account() OR auth.is_super_admin());
+  WITH CHECK (account_id = public.my_account() OR public.is_super_admin());
 
 CREATE POLICY properties_manager_update ON properties FOR UPDATE
   USING (
-    auth.is_super_admin()
-    OR (account_id = auth.my_account() AND auth.my_role() = 'Property_Manager')
-    OR auth.is_manager_of(id)
+    public.is_super_admin()
+    OR (account_id = public.my_account() AND public.my_role() = 'Property_Manager')
+    OR public.is_manager_of(id)
   );
 
 -- ---------------------------------------------------------------------------
 -- WINGS, FLOORS, UNITS
 -- ---------------------------------------------------------------------------
 CREATE POLICY wings_read ON wings FOR SELECT
-  USING (property_id = ANY(auth.my_property_ids()) OR auth.is_super_admin());
+  USING (property_id = ANY(public.my_property_ids()) OR public.is_super_admin());
 
 CREATE POLICY wings_write ON wings FOR INSERT
-  WITH CHECK (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  WITH CHECK (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY wings_update ON wings FOR UPDATE
-  USING (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  USING (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY floors_read ON floors FOR SELECT
-  USING (property_id = ANY(auth.my_property_ids()) OR auth.is_super_admin());
+  USING (property_id = ANY(public.my_property_ids()) OR public.is_super_admin());
 
 CREATE POLICY floors_write ON floors FOR INSERT
-  WITH CHECK (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  WITH CHECK (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY floors_update ON floors FOR UPDATE
-  USING (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  USING (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY units_read ON units FOR SELECT
-  USING (property_id = ANY(auth.my_property_ids()) OR auth.is_super_admin());
+  USING (property_id = ANY(public.my_property_ids()) OR public.is_super_admin());
 
 CREATE POLICY units_write ON units FOR INSERT
-  WITH CHECK (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  WITH CHECK (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY units_update ON units FOR UPDATE
-  USING (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  USING (public.is_manager_of(property_id) OR public.is_super_admin());
 
 -- ---------------------------------------------------------------------------
 -- RESIDENTS
@@ -233,19 +237,19 @@ CREATE POLICY units_update ON units FOR UPDATE
 CREATE POLICY residents_read ON residents FOR SELECT
   USING (
     profile_id = auth.uid()
-    OR property_id = ANY(auth.my_property_ids())
-    OR auth.is_super_admin()
+    OR property_id = ANY(public.my_property_ids())
+    OR public.is_super_admin()
   );
 
 CREATE POLICY residents_insert ON residents FOR INSERT
-  WITH CHECK (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  WITH CHECK (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY residents_update ON residents FOR UPDATE
   USING (
     -- Can update own profile info
     profile_id = auth.uid()
-    OR auth.is_manager_of(property_id)
-    OR auth.is_super_admin()
+    OR public.is_manager_of(property_id)
+    OR public.is_super_admin()
   );
 
 -- ---------------------------------------------------------------------------
@@ -255,34 +259,34 @@ CREATE POLICY family_read ON family_members FOR SELECT
   USING (
     EXISTS(
       SELECT 1 FROM residents r
-      WHERE r.id = resident_id AND (r.profile_id = auth.uid() OR auth.is_staff_of(r.property_id))
+      WHERE r.id = resident_id AND (r.profile_id = auth.uid() OR public.is_staff_of(r.property_id))
     )
-    OR auth.is_super_admin()
+    OR public.is_super_admin()
   );
 
 CREATE POLICY family_write ON family_members FOR INSERT
   WITH CHECK (
     EXISTS(SELECT 1 FROM residents r WHERE r.id = resident_id AND r.profile_id = auth.uid())
-    OR auth.is_super_admin()
+    OR public.is_super_admin()
   );
 
 CREATE POLICY vehicles_read ON vehicles FOR SELECT
-  USING (property_id = ANY(auth.my_property_ids()) OR auth.is_super_admin());
+  USING (property_id = ANY(public.my_property_ids()) OR public.is_super_admin());
 
 CREATE POLICY vehicles_write ON vehicles FOR INSERT
   WITH CHECK (
     EXISTS(SELECT 1 FROM residents r WHERE r.id = resident_id AND r.profile_id = auth.uid())
-    OR auth.is_manager_of(property_id) OR auth.is_super_admin()
+    OR public.is_manager_of(property_id) OR public.is_super_admin()
   );
 
 -- ---------------------------------------------------------------------------
 -- INVITES
 -- ---------------------------------------------------------------------------
 CREATE POLICY invites_manager_read ON invites FOR SELECT
-  USING (auth.is_manager_of(property_id) OR account_id = auth.my_account() OR auth.is_super_admin());
+  USING (public.is_manager_of(property_id) OR account_id = public.my_account() OR public.is_super_admin());
 
 CREATE POLICY invites_manager_write ON invites FOR INSERT
-  WITH CHECK (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  WITH CHECK (public.is_manager_of(property_id) OR public.is_super_admin());
 
 -- Allow token-based invite lookup (public function via RPC, managed separately)
 
@@ -292,38 +296,38 @@ CREATE POLICY invites_manager_write ON invites FOR INSERT
 CREATE POLICY staff_read ON staff_assignments FOR SELECT
   USING (
     profile_id = auth.uid()
-    OR property_id = ANY(auth.my_property_ids())
-    OR auth.is_super_admin()
+    OR property_id = ANY(public.my_property_ids())
+    OR public.is_super_admin()
   );
 
 CREATE POLICY staff_write ON staff_assignments FOR INSERT
-  WITH CHECK (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  WITH CHECK (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY staff_update ON staff_assignments FOR UPDATE
-  USING (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  USING (public.is_manager_of(property_id) OR public.is_super_admin());
 
 -- ---------------------------------------------------------------------------
 -- NOTICES
 -- ---------------------------------------------------------------------------
 CREATE POLICY notices_read ON notices FOR SELECT
   USING (
-    property_id = ANY(auth.my_property_ids())
-    AND (status = 'Live' OR auth.is_staff_of(property_id) OR auth.is_super_admin())
+    property_id = ANY(public.my_property_ids())
+    AND (status = 'Live' OR public.is_staff_of(property_id) OR public.is_super_admin())
     AND deleted_at IS NULL
   );
 
 CREATE POLICY notices_write ON notices FOR INSERT
-  WITH CHECK (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  WITH CHECK (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY notices_update ON notices FOR UPDATE
-  USING (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  USING (public.is_manager_of(property_id) OR public.is_super_admin());
 
 -- ---------------------------------------------------------------------------
 -- NOTICE READS, COMMENTS
 -- ---------------------------------------------------------------------------
 CREATE POLICY notice_reads_insert ON notice_reads FOR INSERT
   WITH CHECK (
-    auth.is_resident_of(
+    public.is_resident_of(
       (SELECT property_id FROM notices WHERE id = notice_id)
     )
   );
@@ -331,16 +335,16 @@ CREATE POLICY notice_reads_insert ON notice_reads FOR INSERT
 CREATE POLICY notice_reads_select ON notice_reads FOR SELECT
   USING (
     -- Resident sees their own reads; manager sees all reads for their property's notices
-    resident_id = auth.my_resident_id((SELECT property_id FROM notices WHERE id = notice_id))
-    OR auth.is_staff_of((SELECT property_id FROM notices WHERE id = notice_id))
-    OR auth.is_super_admin()
+    resident_id = public.my_resident_id((SELECT property_id FROM notices WHERE id = notice_id))
+    OR public.is_staff_of((SELECT property_id FROM notices WHERE id = notice_id))
+    OR public.is_super_admin()
   );
 
 CREATE POLICY notice_comments_read ON notice_comments FOR SELECT
   USING (
-    auth.is_staff_of((SELECT property_id FROM notices WHERE id = notice_id))
-    OR auth.is_resident_of((SELECT property_id FROM notices WHERE id = notice_id))
-    OR auth.is_super_admin()
+    public.is_staff_of((SELECT property_id FROM notices WHERE id = notice_id))
+    OR public.is_resident_of((SELECT property_id FROM notices WHERE id = notice_id))
+    OR public.is_super_admin()
   );
 
 CREATE POLICY notice_comments_write ON notice_comments FOR INSERT
@@ -350,48 +354,48 @@ CREATE POLICY notice_comments_write ON notice_comments FOR INSERT
 -- EVENTS, RSVPs
 -- ---------------------------------------------------------------------------
 CREATE POLICY events_read ON events FOR SELECT
-  USING (property_id = ANY(auth.my_property_ids()) AND deleted_at IS NULL OR auth.is_super_admin());
+  USING (property_id = ANY(public.my_property_ids()) AND deleted_at IS NULL OR public.is_super_admin());
 
 CREATE POLICY events_write ON events FOR INSERT
-  WITH CHECK (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  WITH CHECK (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY events_update ON events FOR UPDATE
-  USING (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  USING (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY rsvps_read ON rsvps FOR SELECT
   USING (
-    resident_id = auth.my_resident_id((SELECT property_id FROM events WHERE id = event_id))
-    OR auth.is_staff_of((SELECT property_id FROM events WHERE id = event_id))
-    OR auth.is_super_admin()
+    resident_id = public.my_resident_id((SELECT property_id FROM events WHERE id = event_id))
+    OR public.is_staff_of((SELECT property_id FROM events WHERE id = event_id))
+    OR public.is_super_admin()
   );
 
 CREATE POLICY rsvps_write ON rsvps FOR INSERT
   WITH CHECK (
-    resident_id = auth.my_resident_id((SELECT property_id FROM events WHERE id = event_id))
+    resident_id = public.my_resident_id((SELECT property_id FROM events WHERE id = event_id))
   );
 
 CREATE POLICY rsvps_update ON rsvps FOR UPDATE
   USING (
-    resident_id = auth.my_resident_id((SELECT property_id FROM events WHERE id = event_id))
+    resident_id = public.my_resident_id((SELECT property_id FROM events WHERE id = event_id))
   );
 
 -- ---------------------------------------------------------------------------
 -- COMMUNITY THREADS
 -- ---------------------------------------------------------------------------
 CREATE POLICY threads_read ON threads FOR SELECT
-  USING (property_id = ANY(auth.my_property_ids()) AND deleted_at IS NULL OR auth.is_super_admin());
+  USING (property_id = ANY(public.my_property_ids()) AND deleted_at IS NULL OR public.is_super_admin());
 
 CREATE POLICY threads_write ON threads FOR INSERT
-  WITH CHECK (author_id = auth.uid() AND property_id = ANY(auth.my_property_ids()));
+  WITH CHECK (author_id = auth.uid() AND property_id = ANY(public.my_property_ids()));
 
 CREATE POLICY threads_update ON threads FOR UPDATE
-  USING (author_id = auth.uid() OR auth.is_manager_of(property_id) OR auth.is_super_admin());
+  USING (author_id = auth.uid() OR public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY thread_comments_read ON thread_comments FOR SELECT
   USING (
-    auth.is_staff_of((SELECT property_id FROM threads WHERE id = thread_id))
-    OR auth.is_resident_of((SELECT property_id FROM threads WHERE id = thread_id))
-    OR auth.is_super_admin()
+    public.is_staff_of((SELECT property_id FROM threads WHERE id = thread_id))
+    OR public.is_resident_of((SELECT property_id FROM threads WHERE id = thread_id))
+    OR public.is_super_admin()
   );
 
 CREATE POLICY thread_comments_write ON thread_comments FOR INSERT
@@ -399,9 +403,9 @@ CREATE POLICY thread_comments_write ON thread_comments FOR INSERT
 
 CREATE POLICY thread_upvotes_read ON thread_upvotes FOR SELECT
   USING (
-    auth.is_staff_of((SELECT property_id FROM threads WHERE id = thread_id))
-    OR auth.is_resident_of((SELECT property_id FROM threads WHERE id = thread_id))
-    OR auth.is_super_admin()
+    public.is_staff_of((SELECT property_id FROM threads WHERE id = thread_id))
+    OR public.is_resident_of((SELECT property_id FROM threads WHERE id = thread_id))
+    OR public.is_super_admin()
   );
 
 CREATE POLICY thread_upvotes_write ON thread_upvotes FOR INSERT
@@ -415,16 +419,16 @@ CREATE POLICY thread_upvotes_delete ON thread_upvotes FOR DELETE
 -- ---------------------------------------------------------------------------
 CREATE POLICY announcements_read ON announcements FOR SELECT
   USING (
-    property_id = ANY(auth.my_property_ids())
-    AND (published_at IS NOT NULL OR auth.is_staff_of(property_id) OR auth.is_super_admin())
+    property_id = ANY(public.my_property_ids())
+    AND (published_at IS NOT NULL OR public.is_staff_of(property_id) OR public.is_super_admin())
     AND deleted_at IS NULL
   );
 
 CREATE POLICY announcements_write ON announcements FOR INSERT
-  WITH CHECK (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  WITH CHECK (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY announcements_update ON announcements FOR UPDATE
-  USING (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  USING (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY announcement_reads_insert ON announcement_reads FOR INSERT
   WITH CHECK (profile_id = auth.uid());
@@ -432,8 +436,8 @@ CREATE POLICY announcement_reads_insert ON announcement_reads FOR INSERT
 CREATE POLICY announcement_reads_select ON announcement_reads FOR SELECT
   USING (
     profile_id = auth.uid()
-    OR auth.is_manager_of((SELECT property_id FROM announcements WHERE id = announcement_id))
-    OR auth.is_super_admin()
+    OR public.is_manager_of((SELECT property_id FROM announcements WHERE id = announcement_id))
+    OR public.is_super_admin()
   );
 
 -- ---------------------------------------------------------------------------
@@ -442,107 +446,107 @@ CREATE POLICY announcement_reads_select ON announcement_reads FOR SELECT
 CREATE POLICY complaints_resident_read ON complaints FOR SELECT
   USING (
     -- Resident sees their own complaints
-    resident_id = auth.my_resident_id(property_id)
+    resident_id = public.my_resident_id(property_id)
     -- Staff sees all complaints in their property
-    OR auth.is_staff_of(property_id)
-    OR auth.is_super_admin()
+    OR public.is_staff_of(property_id)
+    OR public.is_super_admin()
   );
 
 CREATE POLICY complaints_resident_insert ON complaints FOR INSERT
   WITH CHECK (
-    resident_id = auth.my_resident_id(property_id)
-    AND property_id = ANY(auth.my_property_ids())
+    resident_id = public.my_resident_id(property_id)
+    AND property_id = ANY(public.my_property_ids())
   );
 
 CREATE POLICY complaints_update ON complaints FOR UPDATE
   USING (
     -- Resident can add review on Resolved complaints
-    (resident_id = auth.my_resident_id(property_id) AND status = 'Resolved')
-    OR auth.is_staff_of(property_id)
-    OR auth.is_super_admin()
+    (resident_id = public.my_resident_id(property_id) AND status = 'Resolved')
+    OR public.is_staff_of(property_id)
+    OR public.is_super_admin()
   );
 
 CREATE POLICY complaint_notes_staff ON complaint_notes FOR ALL
   USING (
-    auth.is_staff_of((SELECT property_id FROM complaints WHERE id = complaint_id))
-    OR auth.is_super_admin()
+    public.is_staff_of((SELECT property_id FROM complaints WHERE id = complaint_id))
+    OR public.is_super_admin()
   );
 
 CREATE POLICY complaint_history_read ON complaint_status_history FOR SELECT
   USING (
-    auth.is_staff_of((SELECT property_id FROM complaints WHERE id = complaint_id))
+    public.is_staff_of((SELECT property_id FROM complaints WHERE id = complaint_id))
     OR EXISTS(
       SELECT 1 FROM complaints c
       WHERE c.id = complaint_id
-        AND c.resident_id = auth.my_resident_id(c.property_id)
+        AND c.resident_id = public.my_resident_id(c.property_id)
     )
-    OR auth.is_super_admin()
+    OR public.is_super_admin()
   );
 
 -- ---------------------------------------------------------------------------
 -- SERVICE PROVIDERS, BOOKINGS
 -- ---------------------------------------------------------------------------
 CREATE POLICY providers_read ON service_providers FOR SELECT
-  USING (property_id = ANY(auth.my_property_ids()) AND deleted_at IS NULL OR auth.is_super_admin());
+  USING (property_id = ANY(public.my_property_ids()) AND deleted_at IS NULL OR public.is_super_admin());
 
 CREATE POLICY providers_write ON service_providers FOR INSERT
-  WITH CHECK (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  WITH CHECK (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY providers_update ON service_providers FOR UPDATE
-  USING (auth.is_manager_of(property_id) OR profile_id = auth.uid() OR auth.is_super_admin());
+  USING (public.is_manager_of(property_id) OR profile_id = auth.uid() OR public.is_super_admin());
 
 CREATE POLICY bookings_read ON bookings FOR SELECT
   USING (
-    resident_id = auth.my_resident_id(property_id)
-    OR auth.is_staff_of(property_id)
+    resident_id = public.my_resident_id(property_id)
+    OR public.is_staff_of(property_id)
     OR EXISTS(SELECT 1 FROM service_providers sp WHERE sp.id = provider_id AND sp.profile_id = auth.uid())
-    OR auth.is_super_admin()
+    OR public.is_super_admin()
   );
 
 CREATE POLICY bookings_resident_insert ON bookings FOR INSERT
   WITH CHECK (
-    resident_id = auth.my_resident_id(property_id)
-    AND property_id = ANY(auth.my_property_ids())
+    resident_id = public.my_resident_id(property_id)
+    AND property_id = ANY(public.my_property_ids())
   );
 
 CREATE POLICY bookings_update ON bookings FOR UPDATE
   USING (
-    resident_id = auth.my_resident_id(property_id)
-    OR auth.is_staff_of(property_id)
+    resident_id = public.my_resident_id(property_id)
+    OR public.is_staff_of(property_id)
     OR EXISTS(SELECT 1 FROM service_providers sp WHERE sp.id = provider_id AND sp.profile_id = auth.uid())
-    OR auth.is_super_admin()
+    OR public.is_super_admin()
   );
 
 -- ---------------------------------------------------------------------------
 -- POLLS & SURVEYS
 -- ---------------------------------------------------------------------------
 CREATE POLICY polls_read ON polls FOR SELECT
-  USING (property_id = ANY(auth.my_property_ids()) AND deleted_at IS NULL OR auth.is_super_admin());
+  USING (property_id = ANY(public.my_property_ids()) AND deleted_at IS NULL OR public.is_super_admin());
 
 CREATE POLICY polls_write ON polls FOR INSERT
-  WITH CHECK (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  WITH CHECK (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY poll_options_read ON poll_options FOR SELECT
   USING (
-    EXISTS(SELECT 1 FROM polls p WHERE p.id = poll_id AND p.property_id = ANY(auth.my_property_ids()))
-    OR auth.is_super_admin()
+    EXISTS(SELECT 1 FROM polls p WHERE p.id = poll_id AND p.property_id = ANY(public.my_property_ids()))
+    OR public.is_super_admin()
   );
 
 CREATE POLICY poll_votes_read ON poll_votes FOR SELECT
   USING (
     profile_id = auth.uid()
-    OR auth.is_manager_of((SELECT property_id FROM polls WHERE id = poll_id))
-    OR auth.is_super_admin()
+    OR public.is_manager_of((SELECT property_id FROM polls WHERE id = poll_id))
+    OR public.is_super_admin()
   );
 
 CREATE POLICY poll_votes_insert ON poll_votes FOR INSERT
   WITH CHECK (profile_id = auth.uid());
 
 CREATE POLICY surveys_read ON surveys FOR SELECT
-  USING (property_id = ANY(auth.my_property_ids()) AND deleted_at IS NULL OR auth.is_super_admin());
+  USING (property_id = ANY(public.my_property_ids()) AND deleted_at IS NULL OR public.is_super_admin());
 
 CREATE POLICY surveys_write ON surveys FOR INSERT
-  WITH CHECK (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  WITH CHECK (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY survey_responses_insert ON survey_responses FOR INSERT
   WITH CHECK (profile_id = auth.uid());
@@ -550,8 +554,8 @@ CREATE POLICY survey_responses_insert ON survey_responses FOR INSERT
 CREATE POLICY survey_responses_read ON survey_responses FOR SELECT
   USING (
     profile_id = auth.uid()
-    OR auth.is_manager_of((SELECT property_id FROM surveys WHERE id = survey_id))
-    OR auth.is_super_admin()
+    OR public.is_manager_of((SELECT property_id FROM surveys WHERE id = survey_id))
+    OR public.is_super_admin()
   );
 
 -- ---------------------------------------------------------------------------
@@ -559,29 +563,29 @@ CREATE POLICY survey_responses_read ON survey_responses FOR SELECT
 -- ---------------------------------------------------------------------------
 CREATE POLICY dues_read ON maintenance_dues FOR SELECT
   USING (
-    resident_id = auth.my_resident_id(property_id)
-    OR auth.is_staff_of(property_id)
-    OR auth.is_super_admin()
+    resident_id = public.my_resident_id(property_id)
+    OR public.is_staff_of(property_id)
+    OR public.is_super_admin()
   );
 
 CREATE POLICY dues_write ON maintenance_dues FOR INSERT
-  WITH CHECK (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  WITH CHECK (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY dues_update ON maintenance_dues FOR UPDATE
-  USING (auth.is_manager_of(property_id) OR auth.is_super_admin());
+  USING (public.is_manager_of(property_id) OR public.is_super_admin());
 
 CREATE POLICY payments_read ON payments FOR SELECT
   USING (
-    resident_id = auth.my_resident_id(property_id)
-    OR auth.is_staff_of(property_id)
-    OR auth.is_super_admin()
+    resident_id = public.my_resident_id(property_id)
+    OR public.is_staff_of(property_id)
+    OR public.is_super_admin()
   );
 
 CREATE POLICY payments_insert ON payments FOR INSERT
   WITH CHECK (
-    resident_id = auth.my_resident_id(property_id)
-    OR auth.is_manager_of(property_id)
-    OR auth.is_super_admin()
+    resident_id = public.my_resident_id(property_id)
+    OR public.is_manager_of(property_id)
+    OR public.is_super_admin()
   );
 
 -- ---------------------------------------------------------------------------
@@ -590,48 +594,48 @@ CREATE POLICY payments_insert ON payments FOR INSERT
 CREATE POLICY visitors_read ON visitors FOR SELECT
   USING (
     -- Resident sees their own visitors
-    resident_id = auth.my_resident_id(property_id)
+    resident_id = public.my_resident_id(property_id)
     -- All property staff can see visitors
-    OR auth.is_staff_of(property_id)
-    OR auth.is_super_admin()
+    OR public.is_staff_of(property_id)
+    OR public.is_super_admin()
   );
 
 CREATE POLICY visitors_resident_insert ON visitors FOR INSERT
   WITH CHECK (
-    resident_id = auth.my_resident_id(property_id)
-    OR auth.is_staff_of(property_id)
-    OR auth.is_super_admin()
+    resident_id = public.my_resident_id(property_id)
+    OR public.is_staff_of(property_id)
+    OR public.is_super_admin()
   );
 
 CREATE POLICY visitors_update ON visitors FOR UPDATE
   USING (
-    resident_id = auth.my_resident_id(property_id)
-    OR auth.is_staff_of(property_id)
-    OR auth.is_super_admin()
+    resident_id = public.my_resident_id(property_id)
+    OR public.is_staff_of(property_id)
+    OR public.is_super_admin()
   );
 
 CREATE POLICY deliveries_read ON deliveries FOR SELECT
   USING (
-    resident_id = auth.my_resident_id(property_id)
-    OR auth.is_staff_of(property_id)
-    OR auth.is_super_admin()
+    resident_id = public.my_resident_id(property_id)
+    OR public.is_staff_of(property_id)
+    OR public.is_super_admin()
   );
 
 CREATE POLICY deliveries_write ON deliveries FOR INSERT
   WITH CHECK (
-    resident_id = auth.my_resident_id(property_id)
-    OR auth.is_staff_of(property_id)
-    OR auth.is_super_admin()
+    resident_id = public.my_resident_id(property_id)
+    OR public.is_staff_of(property_id)
+    OR public.is_super_admin()
   );
 
 CREATE POLICY deliveries_update ON deliveries FOR UPDATE
-  USING (auth.is_staff_of(property_id) OR auth.is_super_admin());
+  USING (public.is_staff_of(property_id) OR public.is_super_admin());
 
 -- ---------------------------------------------------------------------------
 -- NOTIFICATIONS
 -- ---------------------------------------------------------------------------
 CREATE POLICY notifications_read ON notifications FOR SELECT
-  USING (recipient_id = auth.uid() OR auth.is_super_admin());
+  USING (recipient_id = auth.uid() OR public.is_super_admin());
 
 -- Only backend (service role) inserts notifications
 -- Front-end never inserts directly; Edge Functions use service role key
@@ -646,7 +650,7 @@ CREATE POLICY push_subs_own ON push_subscriptions FOR ALL
 -- ANALYTICS SNAPSHOTS
 -- ---------------------------------------------------------------------------
 CREATE POLICY analytics_read ON analytics_snapshots FOR SELECT
-  USING (auth.is_staff_of(property_id) OR auth.is_super_admin());
+  USING (public.is_staff_of(property_id) OR public.is_super_admin());
 
 -- =============================================================================
 -- PERFORMANCE INDEXES
@@ -751,7 +755,7 @@ CREATE INDEX idx_usage_metrics_account ON usage_metrics(account_id, year, month)
 -- The actual Edge Function is called; this is the cron trigger
 SELECT cron.schedule(
   'generate-monthly-dues',
-  '31 18 L * *',   -- Last day of month at 18:31 UTC = 00:01 IST 1st of next month
+  '1 0 1 * *',   -- 1st of month at 00:01 UTC
   $$
   SELECT net.http_post(
     url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'SUPABASE_EDGE_GENERATE_DUES_URL'),

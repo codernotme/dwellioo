@@ -63,19 +63,19 @@ CREATE POLICY avatars_delete ON storage.objects FOR DELETE
 CREATE POLICY property_assets_select ON storage.objects FOR SELECT
   USING (
     bucket_id = 'property-assets'
-    AND ((string_to_array(name, '/'))[1])::UUID = ANY(auth.my_property_ids())
+    AND ((string_to_array(name, '/'))[1])::UUID = ANY(public.my_property_ids())
   );
 
 CREATE POLICY property_assets_write ON storage.objects FOR INSERT
   WITH CHECK (
     bucket_id = 'property-assets'
-    AND auth.is_manager_of(((string_to_array(name, '/'))[1])::UUID)
+    AND public.is_manager_of(((string_to_array(name, '/'))[1])::UUID)
   );
 
 CREATE POLICY property_assets_delete ON storage.objects FOR DELETE
   USING (
     bucket_id = 'property-assets'
-    AND auth.is_manager_of(((string_to_array(name, '/'))[1])::UUID)
+    AND public.is_manager_of(((string_to_array(name, '/'))[1])::UUID)
   );
 
 -- ---------------------------------------------------------------------------
@@ -85,13 +85,13 @@ CREATE POLICY property_assets_delete ON storage.objects FOR DELETE
 CREATE POLICY notice_attachments_select ON storage.objects FOR SELECT
   USING (
     bucket_id = 'notice-attachments'
-    AND ((string_to_array(name, '/'))[1])::UUID = ANY(auth.my_property_ids())
+    AND ((string_to_array(name, '/'))[1])::UUID = ANY(public.my_property_ids())
   );
 
 CREATE POLICY notice_attachments_write ON storage.objects FOR INSERT
   WITH CHECK (
     bucket_id = 'notice-attachments'
-    AND auth.is_manager_of(((string_to_array(name, '/'))[1])::UUID)
+    AND public.is_manager_of(((string_to_array(name, '/'))[1])::UUID)
   );
 
 -- ---------------------------------------------------------------------------
@@ -101,13 +101,13 @@ CREATE POLICY notice_attachments_write ON storage.objects FOR INSERT
 CREATE POLICY event_gallery_select ON storage.objects FOR SELECT
   USING (
     bucket_id = 'event-gallery'
-    AND ((string_to_array(name, '/'))[1])::UUID = ANY(auth.my_property_ids())
+    AND ((string_to_array(name, '/'))[1])::UUID = ANY(public.my_property_ids())
   );
 
 CREATE POLICY event_gallery_write ON storage.objects FOR INSERT
   WITH CHECK (
     bucket_id = 'event-gallery'
-    AND auth.is_manager_of(((string_to_array(name, '/'))[1])::UUID)
+    AND public.is_manager_of(((string_to_array(name, '/'))[1])::UUID)
   );
 
 -- ---------------------------------------------------------------------------
@@ -117,13 +117,13 @@ CREATE POLICY event_gallery_write ON storage.objects FOR INSERT
 CREATE POLICY complaint_photos_select ON storage.objects FOR SELECT
   USING (
     bucket_id = 'complaint-photos'
-    AND ((string_to_array(name, '/'))[1])::UUID = ANY(auth.my_property_ids())
+    AND ((string_to_array(name, '/'))[1])::UUID = ANY(public.my_property_ids())
   );
 
 CREATE POLICY complaint_photos_write ON storage.objects FOR INSERT
   WITH CHECK (
     bucket_id = 'complaint-photos'
-    AND auth.is_resident_of(((string_to_array(name, '/'))[1])::UUID)
+    AND public.is_resident_of(((string_to_array(name, '/'))[1])::UUID)
   );
 
 -- ---------------------------------------------------------------------------
@@ -133,15 +133,15 @@ CREATE POLICY complaint_photos_write ON storage.objects FOR INSERT
 CREATE POLICY provider_photos_select ON storage.objects FOR SELECT
   USING (
     bucket_id = 'provider-photos'
-    AND ((string_to_array(name, '/'))[1])::UUID = ANY(auth.my_property_ids())
+    AND ((string_to_array(name, '/'))[1])::UUID = ANY(public.my_property_ids())
   );
 
 CREATE POLICY provider_photos_write ON storage.objects FOR INSERT
   WITH CHECK (
     bucket_id = 'provider-photos'
     AND (
-      auth.is_manager_of(((string_to_array(name, '/'))[1])::UUID)
-      OR auth.is_resident_of(((string_to_array(name, '/'))[1])::UUID)
+      public.is_manager_of(((string_to_array(name, '/'))[1])::UUID)
+      OR public.is_resident_of(((string_to_array(name, '/'))[1])::UUID)
     )
   );
 
@@ -153,8 +153,8 @@ CREATE POLICY receipts_select ON storage.objects FOR SELECT
   USING (
     bucket_id = 'receipts'
     AND (
-      ((string_to_array(name, '/'))[2])::UUID = ANY(auth.my_property_ids())
-      OR auth.is_super_admin()
+      ((string_to_array(name, '/'))[2])::UUID = ANY(public.my_property_ids())
+      OR public.is_super_admin()
     )
   );
 
@@ -167,13 +167,13 @@ CREATE POLICY receipts_select ON storage.objects FOR SELECT
 CREATE POLICY visitor_selfies_select ON storage.objects FOR SELECT
   USING (
     bucket_id = 'visitor-selfies'
-    AND ((string_to_array(name, '/'))[1])::UUID = ANY(auth.my_property_ids())
+    AND ((string_to_array(name, '/'))[1])::UUID = ANY(public.my_property_ids())
   );
 
 CREATE POLICY visitor_selfies_write ON storage.objects FOR INSERT
   WITH CHECK (
     bucket_id = 'visitor-selfies'
-    AND auth.is_staff_of(((string_to_array(name, '/'))[1])::UUID)
+    AND public.is_staff_of(((string_to_array(name, '/'))[1])::UUID)
   );
 
 -- ---------------------------------------------------------------------------
@@ -183,11 +183,11 @@ CREATE POLICY visitor_selfies_write ON storage.objects FOR INSERT
 CREATE POLICY delivery_photos_select ON storage.objects FOR SELECT
   USING (
     bucket_id = 'delivery-photos'
-    AND ((string_to_array(name, '/'))[1])::UUID = ANY(auth.my_property_ids())
+    AND ((string_to_array(name, '/'))[1])::UUID = ANY(public.my_property_ids())
   );
 
 CREATE POLICY delivery_photos_write ON storage.objects FOR INSERT
   WITH CHECK (
     bucket_id = 'delivery-photos'
-    AND auth.is_staff_of(((string_to_array(name, '/'))[1])::UUID)
+    AND public.is_staff_of(((string_to_array(name, '/'))[1])::UUID)
   );

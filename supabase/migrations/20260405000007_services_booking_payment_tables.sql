@@ -7,7 +7,7 @@
 -- SERVICE PROVIDERS
 -- ---------------------------------------------------------------------------
 CREATE TABLE service_providers (
-  id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id           UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   -- If self-registered, linked to a profile; if manually added, NULL
   profile_id            UUID REFERENCES profiles(id) ON DELETE SET NULL,
@@ -47,7 +47,7 @@ CREATE TRIGGER service_providers_updated_at
 -- PROVIDER AVAILABILITY SLOTS
 -- ---------------------------------------------------------------------------
 CREATE TABLE provider_slots (
-  id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   provider_id             UUID NOT NULL REFERENCES service_providers(id) ON DELETE CASCADE,
   day_of_week             INT NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),  -- 0=Sun
   start_time              TIME NOT NULL,
@@ -61,7 +61,7 @@ CREATE TABLE provider_slots (
 -- BOOKINGS
 -- ---------------------------------------------------------------------------
 CREATE TABLE bookings (
-  id                        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id               UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   resident_id               UUID NOT NULL REFERENCES residents(id) ON DELETE CASCADE,
   provider_id               UUID NOT NULL REFERENCES service_providers(id) ON DELETE CASCADE,
@@ -121,7 +121,7 @@ CREATE TRIGGER booking_stats_sync
 -- POLLS
 -- ---------------------------------------------------------------------------
 CREATE TABLE polls (
-  id                          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id                 UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   author_id                   UUID REFERENCES profiles(id) ON DELETE SET NULL,
   title                       TEXT NOT NULL,
@@ -144,7 +144,7 @@ CREATE TRIGGER polls_updated_at
 -- POLL OPTIONS
 -- ---------------------------------------------------------------------------
 CREATE TABLE poll_options (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   poll_id         UUID NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
   label           TEXT NOT NULL,
   votes_count     INT NOT NULL DEFAULT 0,
@@ -156,7 +156,7 @@ CREATE TABLE poll_options (
 -- POLL VOTES
 -- ---------------------------------------------------------------------------
 CREATE TABLE poll_votes (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   poll_id     UUID NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
   option_id   UUID NOT NULL REFERENCES poll_options(id) ON DELETE CASCADE,
   profile_id  UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -193,7 +193,7 @@ CREATE TRIGGER poll_vote_sync
 -- SURVEYS
 -- ---------------------------------------------------------------------------
 CREATE TABLE surveys (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id   UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   author_id     UUID REFERENCES profiles(id) ON DELETE SET NULL,
   title         TEXT NOT NULL,
@@ -212,7 +212,7 @@ CREATE TRIGGER surveys_updated_at
 -- SURVEY QUESTIONS
 -- ---------------------------------------------------------------------------
 CREATE TABLE survey_questions (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   survey_id       UUID NOT NULL REFERENCES surveys(id) ON DELETE CASCADE,
   question        TEXT NOT NULL,
   type            TEXT NOT NULL DEFAULT 'text',  -- text | multiple_choice | star_rating
@@ -226,7 +226,7 @@ CREATE TABLE survey_questions (
 -- SURVEY RESPONSES
 -- ---------------------------------------------------------------------------
 CREATE TABLE survey_responses (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   survey_id     UUID NOT NULL REFERENCES surveys(id) ON DELETE CASCADE,
   profile_id    UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   answers       JSONB NOT NULL DEFAULT '{}',  -- {question_id: answer}
@@ -250,7 +250,7 @@ $$;
 -- MAINTENANCE DUES
 -- ---------------------------------------------------------------------------
 CREATE TABLE maintenance_dues (
-  id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id           UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   unit_id               UUID NOT NULL REFERENCES units(id) ON DELETE CASCADE,
   resident_id           UUID NOT NULL REFERENCES residents(id) ON DELETE CASCADE,
@@ -297,7 +297,7 @@ CREATE TRIGGER dues_apply_late_fee
 -- PAYMENTS
 -- ---------------------------------------------------------------------------
 CREATE TABLE payments (
-  id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id              UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   property_id             UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   resident_id             UUID NOT NULL REFERENCES residents(id) ON DELETE CASCADE,

@@ -28,7 +28,7 @@ INSERT INTO plan_limits (plan, max_properties, max_units, max_staff, max_wa_send
 -- ACCOUNTS
 -- ---------------------------------------------------------------------------
 CREATE TABLE accounts (
-  id                          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id                    UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   name                        TEXT NOT NULL,
   slug                        TEXT NOT NULL UNIQUE,
@@ -95,7 +95,7 @@ CREATE TRIGGER on_auth_user_created
 -- BILLING INVOICES
 -- ---------------------------------------------------------------------------
 CREATE TABLE billing_invoices (
-  id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id            UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   razorpay_invoice_id   TEXT UNIQUE,
   amount_paise          BIGINT NOT NULL DEFAULT 0,
@@ -111,7 +111,7 @@ CREATE TABLE billing_invoices (
 -- AUDIT LOGS  (append-only, never updated or deleted)
 -- ---------------------------------------------------------------------------
 CREATE TABLE audit_logs (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id    UUID REFERENCES accounts(id) ON DELETE SET NULL,
   property_id   UUID,  -- FK added later via ALTER to avoid forward reference
   actor_id      UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -129,7 +129,7 @@ CREATE TABLE audit_logs (
 -- USAGE METRICS  (pre-aggregated per property per month)
 -- ---------------------------------------------------------------------------
 CREATE TABLE usage_metrics (
-  id                          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id                  UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   property_id                 UUID,  -- FK added later
   year                        INT NOT NULL,

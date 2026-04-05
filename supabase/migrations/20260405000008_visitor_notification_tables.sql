@@ -7,7 +7,7 @@
 -- VISITORS
 -- ---------------------------------------------------------------------------
 CREATE TABLE visitors (
-  id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id           UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   unit_id               UUID REFERENCES units(id) ON DELETE SET NULL,
   resident_id           UUID NOT NULL REFERENCES residents(id) ON DELETE CASCADE,
@@ -67,7 +67,7 @@ CREATE TRIGGER visitor_otp_gen
 -- DELIVERIES
 -- ---------------------------------------------------------------------------
 CREATE TABLE deliveries (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id     UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   unit_id         UUID REFERENCES units(id) ON DELETE SET NULL,
   resident_id     UUID NOT NULL REFERENCES residents(id) ON DELETE CASCADE,
@@ -110,7 +110,7 @@ CREATE TRIGGER delivery_timestamps
 -- Multi-channel notification queue with retry logic
 -- ---------------------------------------------------------------------------
 CREATE TABLE notifications (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id      UUID REFERENCES accounts(id) ON DELETE CASCADE,
   property_id     UUID REFERENCES properties(id) ON DELETE CASCADE,
   recipient_id    UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -140,7 +140,7 @@ CREATE TRIGGER notifications_updated_at
 -- PUSH SUBSCRIPTIONS (Web Push API)
 -- ---------------------------------------------------------------------------
 CREATE TABLE push_subscriptions (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id      UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   endpoint        TEXT NOT NULL,
   p256dh          TEXT NOT NULL,
@@ -154,7 +154,7 @@ CREATE TABLE push_subscriptions (
 -- ANALYTICS DAILY SNAPSHOTS (pre-aggregated, no slow real-time queries)
 -- ---------------------------------------------------------------------------
 CREATE TABLE analytics_snapshots (
-  id                        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id               UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   snapshot_date             DATE NOT NULL,
   -- People

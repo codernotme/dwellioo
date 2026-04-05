@@ -7,7 +7,7 @@
 -- COMMUNITY THREADS
 -- ---------------------------------------------------------------------------
 CREATE TABLE threads (
-  id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id         UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   author_id           UUID REFERENCES profiles(id) ON DELETE SET NULL,
   title               TEXT NOT NULL,
@@ -34,7 +34,7 @@ CREATE TRIGGER threads_updated_at
 -- THREAD UPVOTES
 -- ---------------------------------------------------------------------------
 CREATE TABLE thread_upvotes (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   thread_id     UUID NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
   profile_id    UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -61,7 +61,7 @@ CREATE TRIGGER thread_upvote_sync
 -- THREAD COMMENTS
 -- ---------------------------------------------------------------------------
 CREATE TABLE thread_comments (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   thread_id   UUID NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
   parent_id   UUID REFERENCES thread_comments(id) ON DELETE CASCADE,  -- 1 level nesting
   author_id   UUID REFERENCES profiles(id) ON DELETE SET NULL,
@@ -97,7 +97,7 @@ CREATE TRIGGER thread_comment_stats_sync
 -- THREAD REPORTS (moderation)
 -- ---------------------------------------------------------------------------
 CREATE TABLE thread_reports (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   thread_id     UUID NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
   reporter_id   UUID REFERENCES profiles(id) ON DELETE SET NULL,
   reason        TEXT NOT NULL,
@@ -116,7 +116,7 @@ CREATE TRIGGER thread_reports_updated_at
 -- ANNOUNCEMENTS
 -- ---------------------------------------------------------------------------
 CREATE TABLE announcements (
-  id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id         UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   author_id           UUID REFERENCES profiles(id) ON DELETE SET NULL,
   title               TEXT NOT NULL,
@@ -145,7 +145,7 @@ CREATE TRIGGER announcements_updated_at
 -- ANNOUNCEMENT READS
 -- ---------------------------------------------------------------------------
 CREATE TABLE announcement_reads (
-  id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   announcement_id   UUID NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
   profile_id        UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   read_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -182,7 +182,7 @@ $$;
 -- COMPLAINTS
 -- ---------------------------------------------------------------------------
 CREATE TABLE complaints (
-  id                        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id               UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   resident_id               UUID NOT NULL REFERENCES residents(id) ON DELETE CASCADE,
   ticket_id                 TEXT NOT NULL UNIQUE DEFAULT generate_ticket_id(),
@@ -246,7 +246,7 @@ CREATE TRIGGER complaints_resolved_at
 -- COMPLAINT NOTES (internal staff-only notes)
 -- ---------------------------------------------------------------------------
 CREATE TABLE complaint_notes (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   complaint_id    UUID NOT NULL REFERENCES complaints(id) ON DELETE CASCADE,
   author_id       UUID REFERENCES profiles(id) ON DELETE SET NULL,
   body            TEXT NOT NULL,
@@ -257,7 +257,7 @@ CREATE TABLE complaint_notes (
 -- COMPLAINT STATUS HISTORY
 -- ---------------------------------------------------------------------------
 CREATE TABLE complaint_status_history (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   complaint_id    UUID NOT NULL REFERENCES complaints(id) ON DELETE CASCADE,
   old_status      complaint_status,
   new_status      complaint_status NOT NULL,

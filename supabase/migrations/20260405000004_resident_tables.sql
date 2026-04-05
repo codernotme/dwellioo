@@ -8,7 +8,7 @@
 -- RESIDENTS
 -- ---------------------------------------------------------------------------
 CREATE TABLE residents (
-  id                          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id                  UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   property_id                 UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   unit_id                     UUID REFERENCES units(id) ON DELETE SET NULL,
@@ -62,7 +62,7 @@ CREATE TRIGGER sync_unit_status
 -- FAMILY MEMBERS
 -- ---------------------------------------------------------------------------
 CREATE TABLE family_members (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   resident_id   UUID NOT NULL REFERENCES residents(id) ON DELETE CASCADE,
   name          TEXT NOT NULL,
   relation      TEXT,
@@ -74,7 +74,7 @@ CREATE TABLE family_members (
 -- VEHICLES
 -- ---------------------------------------------------------------------------
 CREATE TABLE vehicles (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   resident_id     UUID NOT NULL REFERENCES residents(id) ON DELETE CASCADE,
   property_id     UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   number_plate    TEXT NOT NULL,
@@ -89,7 +89,7 @@ CREATE TABLE vehicles (
 -- INVITES
 -- ---------------------------------------------------------------------------
 CREATE TABLE invites (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id    UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   property_id   UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   inviter_id    UUID REFERENCES profiles(id) ON DELETE SET NULL,
@@ -97,7 +97,7 @@ CREATE TABLE invites (
   phone         TEXT,
   role          user_role NOT NULL DEFAULT 'Resident',
   unit_id       UUID REFERENCES units(id) ON DELETE SET NULL,
-  token         TEXT NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(32), 'hex'),
+  token         TEXT NOT NULL UNIQUE DEFAULT encode(extensions.gen_random_bytes(32), 'hex'),
   expires_at    TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '7 days'),
   accepted_at   TIMESTAMPTZ,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -109,7 +109,7 @@ CREATE TABLE invites (
 -- NOTIFICATION PREFERENCES (per user, per property, per module)
 -- ---------------------------------------------------------------------------
 CREATE TABLE notification_preferences (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id    UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   property_id   UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   module        TEXT NOT NULL,  -- 'notices' | 'events' | 'complaints' | 'payments' | 'visitors' | ...
@@ -128,7 +128,7 @@ CREATE TRIGGER notification_preferences_updated_at
 -- FREQUENT VISITORS WHITELIST (resident-managed)
 -- ---------------------------------------------------------------------------
 CREATE TABLE whitelisted_visitors (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   resident_id   UUID NOT NULL REFERENCES residents(id) ON DELETE CASCADE,
   property_id   UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   name          TEXT NOT NULL,

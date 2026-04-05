@@ -7,7 +7,7 @@
 -- STAFF ASSIGNMENTS
 -- ---------------------------------------------------------------------------
 CREATE TABLE staff_assignments (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id    UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   property_id   UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   role          user_role NOT NULL,
@@ -56,7 +56,7 @@ CREATE TRIGGER enforce_staff_limit
 -- NOTICES
 -- ---------------------------------------------------------------------------
 CREATE TABLE notices (
-  id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id       UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   author_id         UUID REFERENCES profiles(id) ON DELETE SET NULL,
   title             TEXT NOT NULL,
@@ -88,7 +88,7 @@ CREATE TRIGGER notices_updated_at
 -- NOTICE READS
 -- ---------------------------------------------------------------------------
 CREATE TABLE notice_reads (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   notice_id     UUID NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
   resident_id   UUID NOT NULL REFERENCES residents(id) ON DELETE CASCADE,
   read_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -113,7 +113,7 @@ CREATE TRIGGER notice_read_inserted
 -- NOTICE COMMENTS
 -- ---------------------------------------------------------------------------
 CREATE TABLE notice_comments (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   notice_id   UUID NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
   author_id   UUID REFERENCES profiles(id) ON DELETE SET NULL,
   body        TEXT NOT NULL,
@@ -125,7 +125,7 @@ CREATE TABLE notice_comments (
 -- EVENTS
 -- ---------------------------------------------------------------------------
 CREATE TABLE events (
-  id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id       UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   author_id         UUID REFERENCES profiles(id) ON DELETE SET NULL,
   title             TEXT NOT NULL,
@@ -159,7 +159,7 @@ CREATE TRIGGER events_updated_at
 -- RSVPs
 -- ---------------------------------------------------------------------------
 CREATE TABLE rsvps (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id      UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   resident_id   UUID NOT NULL REFERENCES residents(id) ON DELETE CASCADE,
   status        rsvp_status NOT NULL DEFAULT 'Going',

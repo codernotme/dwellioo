@@ -7,11 +7,12 @@
 -- Extensions
 -- ---------------------------------------------------------------------------
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 CREATE EXTENSION IF NOT EXISTS "unaccent";
 -- pg_cron and pg_net are pre-enabled on Supabase hosted
--- CREATE EXTENSION IF NOT EXISTS "pg_cron";
--- CREATE EXTENSION IF NOT EXISTS "pg_net";
+CREATE EXTENSION IF NOT EXISTS "pg_cron";
+CREATE EXTENSION IF NOT EXISTS "pg_net";
 
 -- ---------------------------------------------------------------------------
 -- ENUMs

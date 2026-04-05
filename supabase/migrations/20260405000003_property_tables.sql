@@ -7,7 +7,7 @@
 -- PROPERTIES
 -- ---------------------------------------------------------------------------
 CREATE TABLE properties (
-  id                              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id                      UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   name                            TEXT NOT NULL,
   slug                            TEXT NOT NULL UNIQUE,
@@ -46,7 +46,7 @@ CREATE TRIGGER properties_updated_at
 -- WINGS
 -- ---------------------------------------------------------------------------
 CREATE TABLE wings (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id   UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   name          TEXT NOT NULL,
   deleted_at    TIMESTAMPTZ,
@@ -57,7 +57,7 @@ CREATE TABLE wings (
 -- FLOORS
 -- ---------------------------------------------------------------------------
 CREATE TABLE floors (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   wing_id       UUID NOT NULL REFERENCES wings(id) ON DELETE CASCADE,
   property_id   UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   floor_number  INT NOT NULL,
@@ -71,7 +71,7 @@ CREATE TABLE floors (
 -- UNITS
 -- ---------------------------------------------------------------------------
 CREATE TABLE units (
-  id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id             UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   wing_id                 UUID REFERENCES wings(id) ON DELETE SET NULL,
   floor_id                UUID REFERENCES floors(id) ON DELETE SET NULL,

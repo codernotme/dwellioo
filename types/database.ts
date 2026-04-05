@@ -253,6 +253,26 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["residents"]["Row"]>;
       };
+      staff_assignments: {
+        Row: {
+          id: string;
+          profile_id: string;
+          property_id: string;
+          role: UserRole;
+          permissions: Json;
+          active: boolean;
+          deleted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["staff_assignments"]["Row"]> & {
+          profile_id: string;
+          property_id: string;
+          role: UserRole;
+        };
+        Update: Partial<Database["public"]["Tables"]["staff_assignments"]["Row"]>;
+      };
+
       notices: {
         Row: {
           id: string;
@@ -282,6 +302,36 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["notices"]["Row"]>;
       };
+      notice_reads: {
+        Row: {
+          id: string;
+          notice_id: string;
+          resident_id: string;
+          read_at: string;
+        };
+        Insert: {
+          notice_id: string;
+          resident_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["notice_reads"]["Row"]>;
+      };
+      notice_comments: {
+        Row: {
+          id: string;
+          notice_id: string;
+          author_id: string | null;
+          body: string;
+          deleted_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          notice_id: string;
+          author_id?: string | null;
+          body: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["notice_comments"]["Row"]>;
+      };
+
       complaints: {
         Row: {
           id: string;
@@ -312,6 +362,54 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["complaints"]["Row"]>;
       };
+      events: {
+        Row: {
+          id: string;
+          property_id: string;
+          author_id: string | null;
+          title: string;
+          description: string | null;
+          category: EventCategory;
+          status: EventStatus;
+          venue: string | null;
+          cover_image_url: string | null;
+          starts_at: string;
+          ends_at: string | null;
+          capacity: number | null;
+          going_count: number;
+          not_going_count: number;
+          maybe_count: number;
+          is_recurring: boolean;
+          recurrence_rule: string | null;
+          gallery_urls: string[];
+          deleted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["events"]["Row"]> & {
+          property_id: string;
+          title: string;
+          starts_at: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["events"]["Row"]>;
+      };
+      rsvps: {
+        Row: {
+          id: string;
+          event_id: string;
+          resident_id: string;
+          status: RsvpStatus;
+          guest_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["rsvps"]["Row"]> & {
+          event_id: string;
+          resident_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["rsvps"]["Row"]>;
+      };
+
       visitors: {
         Row: {
           id: string;
