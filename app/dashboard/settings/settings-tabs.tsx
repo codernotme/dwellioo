@@ -1,9 +1,69 @@
 "use client";
 
-import { Card, Button, Table, Chip, TabsRoot, TabList, Tab, TabPanel, TextField, Label, Input } from "@heroui/react";
-import { Building2, Landmark, ShieldCheck, MapPin } from "lucide-react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { 
+  Card, 
+  Button, 
+  Table, 
+  Chip, 
+  TabsRoot, 
+  TabList, 
+  Tab, 
+  TabPanel, 
+  TextField, 
+  Label, 
+  Input 
+} from "@heroui/react";
+import { Building2, Landmark, ShieldCheck, MapPin, Loader2, Save } from "lucide-react";
+import { updateAccountSettings } from "./actions";
+import { useNotificationModal } from "@/components/providers/notification-provider";
+
+const accountSchema = z.object({
+  name: z.string().min(3, "Name must be at least 3 characters"),
+  slug: z.string().min(3, "Slug must be at least 3 characters").regex(/^[a-z0-9-]+$/, "Slug can only contain lowercase letters, numbers, and hyphens"),
+});
+
+type AccountFormData = z.infer<typeof accountSchema>;
 
 export function SettingsTabs({ account, properties }: { account: any, properties: any[] }) {
+  const [isUpdatingAccount, setIsUpdatingAccount] = useState(false);
+  const { showNotification } = useNotificationModal();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<AccountFormData>({
+    resolver: zodResolver(accountSchema),
+    defaultValues: {
+      name: account?.name || "",
+      slug: account?.slug || "",
+    },
+  });
+
+  const onUpdateAccount = async (data: AccountFormData) => {
+    setIsUpdatingAccount(true);
+    const result = await updateAccountSettings(account.id, data);
+    setIsUpdatingAccount(false);
+
+    if (result.success) {
+      showNotification({
+        title: "Settings Updated",
+        message: "Your organization settings have been successfully saved.",
+        type: "success",
+      });
+    } else {
+      showNotification({
+        title: "Update Failed",
+        message: result.error || "Failed to update settings.",
+        type: "error",
+      });
+    }
+  };
+
   return (
     <div className="w-full">
       <TabsRoot className="w-full">
@@ -23,26 +83,51 @@ export function SettingsTabs({ account, properties }: { account: any, properties
         </TabList>
 
         <TabPanel id="organization">
-          <Card className="p-8 border border-default-200 bg-background shadow-sm">
-            <h3 className="text-xl font-bold mb-6">Organization Profile</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-              <TextField name="orgName" defaultValue={account?.name} className="flex flex-col gap-1.5" isReadOnly={false}>
-                <Label className="text-sm font-bold text-default-700">Organization Name</Label>
-                <Input className="flex h-11 w-full rounded-lg border border-default-300 bg-background px-4 py-2 text-sm" />
-              </TextField>
-              <TextField isReadOnly defaultValue={account?.slug} className="flex flex-col gap-1.5 opacity-70">
-                <Label className="text-sm font-bold text-default-700">Organization Slug</Label>
-                <Input className="flex h-11 w-full rounded-lg border border-default-300 bg-default-100 px-4 py-2 text-sm italic" />
-              </TextField>
-              <TextField isReadOnly defaultValue={account?.plan} className="flex flex-col gap-1.5 opacity-70">
-                <Label className="text-sm font-bold text-default-700">Current Subscription Plan</Label>
-                <Input className="flex h-11 w-full rounded-lg border border-default-300 bg-default-100 px-4 py-2 text-sm uppercase tracking-wider font-black" />
-              </TextField>
-            </div>
-            <div>
-              <Button variant="primary" className="h-11 px-8 font-bold text-sm">Update Organization</Button>
-            </div>
-          </Card>
+          <form onSubmit={handleSubmit(onUpdateAccount)}>
+            <Card className="p-8 border border-default-200 bg-background shadow-sm">
+              <h3 className="text-xl font-bold mb-6">Organization Profile</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-sm font-bold text-default-700">Organization Name</Label>
+                  <Input 
+                    {...register("name")}
+                    className={`flex h-11 w-full rounded-lg border px-4 py-2 text-sm ${errors.name ? 'border-danger' : 'border-default-300'} bg-background`} 
+                  />
+                  {errors.name && <p className="text-xs text-danger font-medium">{errors.name.message}</p>}
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-sm font-bold text-default-700">Organization Slug</Label>
+                  <Input 
+                    {...register("slug")}
+                    className={`flex h-11 w-full rounded-lg border px-4 py-2 text-sm ${errors.slug ? 'border-danger' : 'border-default-300'} bg-background`} 
+                  />
+                  {errors.slug && <p className="text-xs text-danger font-medium">{errors.slug.message}</p>}
+                  <p className="text-[10px] text-default-400 font-medium italic mt-1">Warning: Changing the slug may break existing invite links.</p>
+                </div>
+
+                <div className="flex flex-col gap-1.5 opacity-70">
+                  <Label className="text-sm font-bold text-default-700">Current Plan</Label>
+                  <Input 
+                    readOnly 
+                    defaultValue={account?.plan} 
+                    className="flex h-11 w-full rounded-lg border border-default-300 bg-default-100 px-4 py-2 text-sm uppercase tracking-wider font-black" 
+                  />
+                </div>
+              </div>
+              <div>
+                <Button 
+                  type="submit"
+                  variant="primary" 
+                  className="h-11 px-8 font-bold text-sm flex items-center gap-2"
+                  isDisabled={isUpdatingAccount}
+                >
+                  {isUpdatingAccount ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                  Update Organization
+                </Button>
+              </div>
+            </Card>
+          </form>
         </TabPanel>
 
         <TabPanel id="properties">
@@ -59,7 +144,6 @@ export function SettingsTabs({ account, properties }: { account: any, properties
                       <Table.Column>NAME</Table.Column>
                       <Table.Column>LOCATION</Table.Column>
                       <Table.Column>TYPE</Table.Column>
-                      <Table.Column>UNITS</Table.Column>
                       <Table.Column>STATUS</Table.Column>
                     </Table.Header>
                     <Table.Body renderEmptyState={() => "No properties found."}>
@@ -76,9 +160,6 @@ export function SettingsTabs({ account, properties }: { account: any, properties
                           </Table.Cell>
                           <Table.Cell>
                              <Chip size="sm" variant="soft" color="accent" className="font-bold text-[10px]">{property.type}</Chip>
-                          </Table.Cell>
-                          <Table.Cell>
-                             <span className="text-sm font-black tracking-tighter text-default-600">24 UNITS</span>
                           </Table.Cell>
                           <Table.Cell>
                             <Chip size="sm" color="success" variant="soft" className="font-black">ACTIVE</Chip>

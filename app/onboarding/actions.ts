@@ -4,11 +4,19 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
-export async function createOrganization(formData: FormData) {
+export async function createOrganization(data: {
+  orgName: string;
+  propertyName: string;
+  propertyType: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+}) {
   const supabase = await createClient();
-  const name = formData.get("name") as string;
-  const propertyName = formData.get("propertyName") as string;
-  const slug = name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+  const { orgName, propertyName, propertyType, address, city, state, pincode } = data;
+  
+  const slug = orgName.toLowerCase().replace(/[^a-z0-9]/g, "-");
   const propSlug = propertyName.toLowerCase().replace(/[^a-z0-9]/g, "-");
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -20,15 +28,20 @@ export async function createOrganization(formData: FormData) {
   const { data: account, error: accountError } = await (supabase as any)
     .from("accounts")
     .insert({
-      name,
-      slug,
-      owner_id: user.id
+      name: orgName,
+      slug: `${slug}-${Math.random().toString(36).substring(7)}`, // Ensure uniqueness
+      owner_id: user.id,
+      plan: 'Trial',
+      max_properties: 1,
+      max_units: 30,
+      max_staff: 3,
+      max_wa_sends_per_month: 100
     })
     .select()
     .single();
 
   if (accountError || !account) {
-    return { error: accountError?.message || "Failed to create account" };
+    return { error: accountError?.message || "Failed to create organization" };
   }
 
   const accountId = (account as any).id;
@@ -39,10 +52,18 @@ export async function createOrganization(formData: FormData) {
     .insert({
       account_id: accountId,
       name: propertyName,
-      slug: `${slug}-${propSlug}`,
+      slug: `${propSlug}-${Math.random().toString(36).substring(7)}`,
+      type: propertyType,
+      address,
+      city,
+      state,
+      pincode,
+      onboarding_step: 1 // Initial property created
     });
 
   if (propertyError) {
+    // Basic cleanup - ideally we'd use a transaction if Supabase supported them easily via RPC, 
+    // but for onboarding we'll just handle errors.
     return { error: propertyError.message };
   }
 
@@ -60,5 +81,5 @@ export async function createOrganization(formData: FormData) {
   }
 
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  return { success: true };
 }
